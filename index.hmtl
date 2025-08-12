@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>프랑스 메모리 게임</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+
+    /* 카드 기본 */
+    .card { width: 120px; height: 160px; cursor: pointer; perspective: 1000px; }
+    .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; }
+    .card.flipped .card-inner { transform: rotateY(180deg); }
+
+    /* 앞/뒤면 */
+    .card-face { position: absolute; inset: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; -webkit-backface-visibility: hidden; backface-visibility: hidden; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+    .card-front { background-color: #3b82f6; color: white; font-size: 1.5rem; font-weight: 600; }
+    .card-back { background-color: #f3f4f6; transform: rotateY(180deg); display: grid; grid-template-rows: 1fr auto; padding: 8px; gap: 6px; }
+
+    /* 이미지/텍스트 레이아웃 */
+    .thumb-wrap { display:flex; align-items:center; justify-content:center; }
+    .thumb-wrap img { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; image-rendering: -webkit-optimize-contrast; }
+    .label { font-size: 0.95rem; font-weight: 700; color: #1f2937; line-height: 1.1; }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+  <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full">
+    <div id="game-container" class="flex flex-col items-center">
+      <h1 class="text-3xl font-bold mb-3 text-gray-800">프랑스 메모리 게임</h1>
+      <p class="text-sm text-gray-500 mb-6">같은 카드를 2장씩 찾아요. 카드 뒤에는 <b>위에 그림</b>, <b>아래에 단어</b>가 함께 보여요.</p>
+      <p id="message" class="text-lg text-gray-700 mb-6 font-semibold"></p>
+
+      <!-- 난이도 선택(선택 사항) -->
+      <div class="flex items-center gap-2 mb-4">
+        <label class="text-sm text-gray-600">열 개수</label>
+        <select id="cols" class="border rounded px-2 py-1 text-sm">
+          <option value="4">4</option>
+          <option value="5" selected>5</option>
+          <option value="6">6</option>
+        </select>
+      </div>
+
+      <div id="game-board" class="grid gap-4"></div>
+      <button id="reset-button" class="mt-8 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105">다시 시작</button>
+    </div>
+  </div>
+
+  <script>
+    // 1) 기본 데이터(각 항목은 이미지+낱말 세트).
+    const baseData = [
+      { value: '에펠탑', image: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Tour_Eiffel_Wikimedia_Commons_%28cropped%29.jpg' },
+      { value: '루브르 박물관', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Louvre_Museum_7_%2814526685162%29.jpg/1200px-Louvre_Museum_7_%2814526685162%29.jpg' },
+      { value: '마카롱', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Macarons_varios.jpg/1200px-Macarons_varios.jpg' },
+      { value: '베르사유 궁전', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Ch%C3%A2teau_de_Versailles_by_Ponsen_02_2020.jpg/1200px-Ch%C3%A2teau_de_Versailles_by_Ponsen_02_2020.jpg' },
+      { value: '노트르담 대성당', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Paris_Notre_Dame_de_Paris_2023.jpg/1200px-Paris_Notre_Dame_de_Paris_2023.jpg' }
+    ];
+
+    // 상태 변수
+    let deck = [];         // 실제 게임 덱(각 항목이 2장씩)
+    let flipped = [];      // 현재 뒤집힌 카드 DOM 2장까지
+    let matchedPairs = 0;  // 맞춘 쌍 수
+    let lock = false;      // 애니메이션 중 잠금
+
+    // DOM
+    const board = document.getElementById('game-board');
+    const msg = document.getElementById('message');
+    const resetBtn = document.getElementById('reset-button');
+    const colsSelect = document.getElementById('cols');
+
+    // 초기화
+    function initGame() {
+      // 1) 덱 만들기: 같은 카드 2장씩(이미지+단어가 한 카드의 뒷면에 함께 노출)
+      const duplicated = baseData.flatMap((item) => [
+        { ...item },
+        { ...item }
+      ]);
+
+      deck = shuffle(duplicated);
+      matchedPairs = 0;
+      flipped = [];
+      lock = false;
+
+      msg.textContent = '카드를 뒤집어 같은 그림-낱말 카드를 찾아보세요!';
+
+      // 2) 보드 구성
+      board.innerHTML = '';
+      const cols = parseInt(colsSelect.value, 10) || 5;
+      board.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+      deck.forEach((card) => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.dataset.value = card.value;
+        el.innerHTML = `
+          <div class="card-inner">
+            <div class="card-face card-front">?</div>
+            <div class="card-face card-back">
+              <div class="thumb-wrap">
+                <img src="${card.image}"
+                     alt="${card.value}"
+                     loading="lazy"
+                     onerror="this.onerror=null;this.src='https://placehold.co/96x96/A0B2C4/ffffff?text=이미지+오류';" />
+              </div>
+              <div class="label">${card.value}</div>
+            </div>
+          </div>
+        `;
+        el.addEventListener('click', onFlip);
+        board.appendChild(el);
+      });
+    }
+
+    // 셔플(Fisher–Yates)
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function onFlip() {
+      if (lock) return;
+      if (this.classList.contains('flipped')) return; // 이미 뒤집힌 카드 클릭 방지
+
+      this.classList.add('flipped');
+      flipped.push(this);
+
+      if (flipped.length === 2) {
+        lock = true;
+        check();
+      }
+    }
+
+    function check() {
+      const [a, b] = flipped;
+      const isMatch = a.dataset.value === b.dataset.value;
+
+      if (isMatch) {
+        msg.textContent = '매칭 성공!';
+        a.removeEventListener('click', onFlip);
+        b.removeEventListener('click', onFlip);
+        flipped = [];
+        lock = false;
+        matchedPairs++;
+
+        if (matchedPairs === baseData.length) {
+          setTimeout(() => { msg.textContent = '축하합니다! 모든 카드를 찾았습니다!'; }, 300);
+        }
+      } else {
+        msg.textContent = '매칭 실패. 다시 시도해 보세요.';
+        setTimeout(() => {
+          a.classList.remove('flipped');
+          b.classList.remove('flipped');
+          flipped = [];
+          lock = false;
+        }, 900);
+      }
+    }
+
+    resetBtn.addEventListener('click', initGame);
+    colsSelect.addEventListener('change', initGame);
+
+    // 최초 시작
+    initGame();
+  </script>
+</body>
+</html>
