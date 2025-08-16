@@ -3,141 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>프랑스 메모리 게임 (2×5 고정배치: 위 사진 / 아래 단어)</title>
+  <title>🇫🇷 프랑스 메모리 게임</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-
-    .card { cursor: pointer; border-radius: 12px; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); background: #f9fafb; display:flex; align-items:center; justify-content:center; text-align:center; user-select:none; }
-    .card--img { height: 140px; }
-    .card--text { height: 84px; font-weight: 800; color:#111827; }
-    .card[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-    .card.selected { outline: 3px solid #2563eb; outline-offset: 2px; }
-
-    .thumb { width: 120px; height: 120px; border-radius: 10px; object-fit: cover; }
+    :root {
+      --blue: #2563eb; /* indigo-600 */
+      --red: #ef4444;  /* red-500 */
+    }
+    body { background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
+    .board { max-width: 1100px; }
+    .perspective { perspective: 1200px; }
+    .card { width: 180px; height: 140px; }
+    .inner { transform-style: preserve-3d; }
+    .card.flipped .inner { transform: rotateY(180deg); }
+    .face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .front {
+      background: radial-gradient(120% 120% at 0% 0%, rgba(37,99,235,0.15) 0%, transparent 60%),
+                  radial-gradient(120% 120% at 100% 100%, rgba(239,68,68,0.15) 0%, transparent 60%),
+                  white;
+    }
+    .back { transform: rotateY(180deg); }
+    .flag-strip::before { /* 좌상단 포인트 플래그 */
+      content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+      background: linear-gradient(90deg, #1d4ed8 0 33%, #ffffff 33% 66%, #dc2626 66% 100%);
+      border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem;
+    }
+    .shadow-soft { box-shadow: 0 10px 20px rgba(2,6,23,0.08), 0 6px 6px rgba(2,6,23,0.06); }
+    @media (max-width: 1180px) { .card { width: 160px; height: 120px; } }
   </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-  <div class="bg-white rounded-xl shadow-lg p-8 max-w-5xl w-full">
-    <div class="flex flex-col items-center">
-      <h1 class="text-3xl font-bold mb-2 text-gray-800">프랑스 메모리 게임</h1>
-      <p class="text-sm text-gray-500 mb-4">2×5 고정배치 · <b>위쪽 행=사진</b> · <b>아래쪽 행=낱말</b></p>
-      <p id="message" class="text-lg text-gray-700 mb-6 font-semibold"></p>
+<body class="min-h-screen py-8 text-slate-800">
+  <main class="mx-auto board px-4">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900">🇫🇷 프랑스 메모리 게임</h1>
+        <p class="text-slate-600 mt-1">사진 카드와 낱말 카드를 짝지어 보세요! (2행 × 5열, 총 10장)</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="btn-new" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold shadow-soft hover:opacity-90 active:opacity-80">새 게임</button>
+        <button id="btn-hint" class="px-4 py-2 rounded-xl bg-white ring-1 ring-slate-200 font-semibold shadow-soft hover:bg-slate-50">정답 힌트 (3초)</button>
+      </div>
+    </header>
 
-      <!-- 2×5 고정: 첫 5개(사진), 다음 5개(단어) -->
-      <div id="game-board" class="grid grid-cols-5 gap-4"></div>
+    <section class="flex items-center gap-6 mb-4">
+      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">이동 수:</span><span id="moves" class="text-lg font-bold">0</span></div>
+      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">성공 쌍:</span><span id="matches" class="text-lg font-bold">0/5</span></div>
+      <div class="ml-auto text-sm text-slate-500">두 장을 뒤집어 <span class="font-semibold">사진-낱말</span>이 같은 주제면 성공!</div>
+    </section>
 
-      <button id="reset-button" class="mt-8 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105">다시 시작</button>
-    </div>
-  </div>
+    <!-- 게임 보드: 항상 5열, 2행 -->
+    <section id="board" class="grid grid-cols-5 gap-4 place-items-center"></section>
+
+    <footer class="mt-6 text-sm text-slate-500">
+      자료 예시: 에펠탑, 모나리자, 루브르 박물관, 개선문, 베르사유 궁전. 이미지는 교육 목적의 예시 링크이며, 필요 시 학교 내부 서버/구글드라이브 이미지로 교체하세요.
+    </footer>
+  </main>
+
+  <template id="tpl-card">
+    <button class="card relative perspective rounded-2xl focus:outline-none focus:ring-4 ring-indigo-200 shadow-soft group" aria-label="카드">
+      <div class="inner w-full h-full transition-transform duration-300">
+        <div class="face front w-full h-full rounded-2xl flex items-center justify-center flag-strip">
+          <div class="text-center">
+            <div class="text-2xl">🃏</div>
+            <div class="mt-1 text-sm text-slate-500">뒤집어 보세요</div>
+          </div>
+        </div>
+        <div class="face back w-full h-full rounded-2xl bg-white flex items-center justify-center p-3"></div>
+      </div>
+    </button>
+  </template>
 
   <script>
-    // 쌍 데이터(마카롱은 음식 사진으로 교체)
-    const pairs = [
-      { value: '에펠탑', image: 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?q=80&w=800&auto=format&fit=crop' },
-      { value: '루브르 박물관', image: 'https://images.unsplash.com/photo-1544989164-31dc3c645987?q=80&w=800&auto=format&fit=crop' },
-      { value: '마카롱', image: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=800&auto=format&fit=crop' },
-      { value: '베르사유 궁전', image: 'https://images.unsplash.com/photo-1587235442239-6a2a26c6f9c9?q=80&w=800&auto=format&fit=crop' },
-      { value: '노트르담 대성당', image: 'https://images.unsplash.com/photo-1558981132-0c27f2a1a3a4?q=80&w=800&auto=format&fit=crop' }
+    // ===== 데이터 세트 (필요 시 이미지 URL 교체) =====
+    const ITEMS = [
+      {
+        id: 'eiffel', ko: '에펠탑', hint: 'Tour Eiffel',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg'
+      },
+      {
+        id: 'mona', ko: '모나리자', hint: 'Mona Lisa',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/6/6a/Mona_Lisa.jpg'
+      },
+      {
+        id: 'louvre', ko: '루브르 박물관', hint: 'Musée du Louvre',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/a/af/Louvre_Museum_Wikimedia_Commons.jpg'
+      },
+      {
+        id: 'arc', ko: '개선문', hint: 'Arc de Triomphe',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/6/6d/Arc_de_Triomphe_Paris_Wikimedia_Commons.jpg'
+      },
+      {
+        id: 'versailles', ko: '베르사유 궁전', hint: 'Palais de Versailles',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Palace_of_Versailles_Wikimedia_Commons.jpg'
+      }
     ];
 
-    // 상태
-    let selectedTop = null;   // 위 행에서 선택된 카드(이미지)
-    let selectedBottom = null;// 아래 행에서 선택된 카드(텍스트)
-    let matched = 0;
+    // ----- 유틸 -----
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+    const shuffle = (arr) => { const a = [...arr]; for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
 
-    // DOM
-    const board = document.getElementById('game-board');
-    const msg = document.getElementById('message');
-    const resetBtn = document.getElementById('reset-button');
-
-    function initGame() {
-      matched = 0;
-      selectedTop = null;
-      selectedBottom = null;
-      msg.textContent = '위 행에서 사진 하나, 아래 행에서 낱말 하나를 선택해 짝을 맞춰보세요!';
-
-      // 고정 배치: 2×5 (셔플 없음)
-      board.innerHTML = '';
-
-      // 1) 위쪽 행: 이미지 카드 5장
-      pairs.forEach((item, idx) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'card card--img';
-        card.dataset.value = item.value;
-        card.dataset.row = 'top';
-        card.innerHTML = `
-          <img class="thumb" src="${item.image}" alt="${item.value}" loading="lazy" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='https://placehold.co/120x120?text=이미지+오류';" />
-        `;
-        card.addEventListener('click', onPick);
-        board.appendChild(card);
-      });
-
-      // 2) 아래쪽 행: 단어 카드 5장 (같은 순서, 고정)
-      pairs.forEach((item) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'card card--text';
-        card.dataset.value = item.value;
-        card.dataset.row = 'bottom';
-        card.textContent = item.value;
-        card.addEventListener('click', onPick);
-        board.appendChild(card);
-      });
+    function placeholderDataURL(label){
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
+        <rect width='100%' height='100%' fill='#e5e7eb'/>
+        <text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='24' fill='#111827'>${label}</text>
+      </svg>`;
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    function onPick(e) {
-      const el = e.currentTarget;
-      const row = el.dataset.row;
+    // ----- 상태 -----
+    let deck = []; // 렌더링용 10장
+    let first = null, second = null, lock = false;
+    let moves = 0, matches = 0;
 
-      // 이미 매칭된 카드는 클릭 불가
-      if (el.getAttribute('aria-disabled') === 'true') return;
+    function makeDeck(){
+      const pairs = ITEMS.flatMap(item => ([
+        { pair: item.id, kind: 'image', label: item.ko, hint: item.hint, img: item.img },
+        { pair: item.id, kind: 'word',  label: item.ko, hint: item.hint }
+      ]));
+      return shuffle(pairs);
+    }
 
-      if (row === 'top') {
-        // 같은 행에서 토글 선택
-        if (selectedTop && selectedTop !== el) selectedTop.classList.remove('selected');
-        selectedTop = (selectedTop === el) ? null : el;
-        el.classList.toggle('selected');
+    function preloadImages(list){
+      list.filter(c => c.kind==='image').forEach(c => { const im = new Image(); im.src = c.img; });
+    }
+
+    function updateHUD(){
+      $('#moves').textContent = moves;
+      $('#matches').textContent = `${matches}/5`;
+    }
+
+    function createCardEl(card, index){
+      const tpl = document.getElementById('tpl-card');
+      const el = tpl.content.firstElementChild.cloneNode(true);
+      el.dataset.pair = card.pair;
+      el.dataset.kind = card.kind;
+      el.dataset.index = index;
+      el.setAttribute('aria-label', card.kind==='image' ? `${card.label} 사진 카드` : `${card.label} 단어 카드`);
+
+      const back = $('.back', el);
+      if(card.kind === 'image'){
+        const img = document.createElement('img');
+        img.src = card.img;
+        img.alt = card.label + ' 사진';
+        img.loading = 'lazy';
+        img.className = 'max-h-[100px] object-cover rounded-lg shadow-inner';
+        img.onerror = () => { img.src = placeholderDataURL(card.label); };
+        back.appendChild(img);
       } else {
-        if (selectedBottom && selectedBottom !== el) selectedBottom.classList.remove('selected');
-        selectedBottom = (selectedBottom === el) ? null : el;
-        el.classList.toggle('selected');
+        const box = document.createElement('div');
+        box.className = 'text-center';
+        const main = document.createElement('div');
+        main.className = 'text-lg font-bold';
+        main.textContent = card.label;
+        const sub = document.createElement('div');
+        sub.className = 'text-xs text-slate-500 mt-1';
+        sub.textContent = card.hint || '';
+        box.appendChild(main); box.appendChild(sub);
+        back.appendChild(box);
       }
 
-      // 둘 다 선택되었을 때 판정
-      if (selectedTop && selectedBottom) {
-        const ok = selectedTop.dataset.value === selectedBottom.dataset.value;
-        if (ok) {
-          msg.textContent = '매칭 성공!';
-          freeze(selectedTop);
-          freeze(selectedBottom);
-          selectedTop.classList.remove('selected');
-          selectedBottom.classList.remove('selected');
-          selectedTop = null; selectedBottom = null;
-          matched++;
-          if (matched === pairs.length) {
-            setTimeout(() => { msg.textContent = '축하합니다! 모든 쌍을 맞췄어요!'; }, 200);
-          }
-        } else {
-          msg.textContent = '매칭 실패. 다시 시도해 보세요.';
-          // 잠깐 강조만 하고 해제
-          setTimeout(() => {
-            selectedTop.classList.remove('selected');
-            selectedBottom.classList.remove('selected');
-            selectedTop = null; selectedBottom = null;
-          }, 500);
-        }
+      el.addEventListener('click', () => onFlip(el));
+      return el;
+    }
+
+    function render(){
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      deck.forEach((c, i) => board.appendChild(createCardEl(c, i)));
+    }
+
+    function onFlip(el){
+      if(lock || el.classList.contains('matched') || el.classList.contains('flipped')) return;
+      el.classList.add('flipped');
+      if(!first){ first = el; return; }
+      second = el; lock = true; moves++; updateHUD();
+
+      const isMatch = first.dataset.pair === second.dataset.pair && first.dataset.kind !== second.dataset.kind;
+      if(isMatch){
+        setTimeout(() => {
+          first.classList.add('matched');
+          second.classList.add('matched');
+          first.setAttribute('disabled', 'true');
+          second.setAttribute('disabled', 'true');
+          first = second = null; lock = false; matches++; updateHUD();
+          if(matches === 5) celebrate();
+        }, 300);
+      } else {
+        setTimeout(() => {
+          first.classList.remove('flipped');
+          second.classList.remove('flipped');
+          first = second = null; lock = false;
+        }, 800);
       }
     }
 
-    function freeze(el) {
-      el.setAttribute('aria-disabled', 'true');
+    function celebrate(){
+      const msg = document.createElement('div');
+      msg.className = 'fixed inset-0 flex items-center justify-center bg-black/20';
+      msg.innerHTML = `
+        <div class='bg-white rounded-2xl p-6 shadow-soft text-center'>
+          <div class='text-3xl mb-2'>🎉 성공!</div>
+          <p class='text-slate-600 mb-4'>모든 짝을 찾았어요. 멋져요!</p>
+          <button id='btn-close' class='px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold hover:opacity-90'>다시 하기</button>
+        </div>`;
+      document.body.appendChild(msg);
+      $('#btn-close', msg).addEventListener('click', () => { document.body.removeChild(msg); newGame(); });
     }
 
-    resetBtn.addEventListener('click', initGame);
-    initGame();
+    function hint3sec(){
+      const cards = $$('#board .card');
+      const toFlip = cards.filter(el => !el.classList.contains('matched') && !el.classList.contains('flipped'));
+      toFlip.forEach(el => el.classList.add('flipped'));
+      setTimeout(() => { toFlip.forEach(el => el.classList.remove('flipped')); }, 3000);
+    }
+
+    function newGame(){
+      first = second = null; lock = false; moves = 0; matches = 0; updateHUD();
+      deck = makeDeck();
+      preloadImages(deck);
+      render();
+    }
+
+    // 초기화
+    document.getElementById('btn-new').addEventListener('click', newGame);
+    document.getElementById('btn-hint').addEventListener('click', hint3sec);
+    newGame();
   </script>
 </body>
 </html>
