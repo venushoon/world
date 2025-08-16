@@ -3,28 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🇫🇷 프랑스 메모리 게임 — 난이도/콤보/사운드</title>
+  <title>🇫🇷 프랑스 메모리 게임 — 난이도/콤보</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root { --blue:#2563eb; --red:#ef4444; }
     body { background: linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%); }
-    .board { max-width: 1400px; }
+    .board { max-width: 1180px; }
     .perspective { perspective: 1200px; }
-    .card { width: 180px; height: 140px; }
-    .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform-origin: center center; }
+    .card { width: 160px; height: 120px; }
+    .inner { position: relative; width:100%; height:100%; transform-style: preserve-3d; transition: transform 0.6s; }
     .card.flipped .inner { transform: rotateY(180deg); }
-    .face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-    .front {
-      background: radial-gradient(120% 120% at 0% 0%, rgba(37,99,235,.15) 0%, transparent 60%),
-                  radial-gradient(120% 120% at 100% 100%, rgba(239,68,68,.15) 0%, transparent 60%),
-                  white;
-    }
-    .back { transform: rotateY(180deg); }
-    .flag-strip::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 6px;
-      background: linear-gradient(90deg,#1d4ed8 0 33%,#fff 33% 66%,#dc2626 66% 100%);
-      border-top-left-radius: .75rem; border-top-right-radius: .75rem; }
-    .shadow-soft { box-shadow: 0 10px 20px rgba(2,6,23,.08), 0 6px 6px rgba(2,6,23,.06); }
-    @media (max-width: 1180px) { .card { width: 160px; height: 120px; } }
+    .face { position:absolute; width:100%; height:100%; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:1rem; display:flex; align-items:center; justify-content:center; }
+    .front { background:#fff; flex-direction:column; }
+    .back { background:#fff; transform:rotateY(180deg); }
+    .shadow-soft { box-shadow:0 10px 20px rgba(2,6,23,.08),0 6px 6px rgba(2,6,23,.06); }
   </style>
 </head>
 <body class="min-h-screen py-8 text-slate-800">
@@ -32,310 +23,186 @@
     <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
       <div>
         <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900">🇫🇷 프랑스 메모리 게임</h1>
-        <p class="text-slate-600 mt-1">사진 카드와 낱말 카드를 짝지어 보세요! (2행 × 5열, 총 10장)</p>
+        <p class="text-slate-600 mt-1">난이도와 세트를 선택해 즐겨보세요!</p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
         <label class="text-sm text-slate-600">세트
-          <select id="dataset" class="ml-2 px-3 py-2 rounded-xl bg-white ring-1 ring-slate-200 shadow-soft">
-            <option value="classic">대표 (혼합)</option>
-            <option value="art">예술 중심</option>
-            <option value="landmarks">랜드마크 중심</option>
-            <option value="food">음식 포함</option>
+          <select id="dataset" class="ml-2 px-2 py-1 rounded bg-white ring-1 ring-slate-200">
+            <option value="classic">대표</option>
+            <option value="art">예술</option>
+            <option value="landmarks">랜드마크</option>
+            <option value="food">음식</option>
           </select>
         </label>
         <label class="text-sm text-slate-600">난이도
-          <select id="difficulty" class="ml-2 px-3 py-2 rounded-xl bg-white ring-1 ring-slate-200 shadow-soft">
-            <option value="5">보통 (10장)</option>
-            <option value="6">어려움 (12장)</option>
-            <option value="8">매우 어려움 (16장)</option>
+          <select id="difficulty" class="ml-2 px-2 py-1 rounded bg-white ring-1 ring-slate-200">
+            <option value="10">10장(기본)</option>
+            <option value="12">12장</option>
+            <option value="16">16장</option>
           </select>
         </label>
-        <label class="text-sm text-slate-600">제한시간
-          <select id="timelimit" class="ml-2 px-3 py-2 rounded-xl bg-white ring-1 ring-slate-200 shadow-soft">
+        <label class="text-sm text-slate-600">시간
+          <select id="timelimit" class="ml-2 px-2 py-1 rounded bg-white ring-1 ring-slate-200">
             <option value="60">60초</option>
             <option value="90" selected>90초</option>
             <option value="120">120초</option>
             <option value="0">무제한</option>
           </select>
         </label>
-        <button id="btn-new" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold shadow-soft hover:opacity-90 active:opacity-80">새 게임</button>
-        <button id="btn-hint" class="px-4 py-2 rounded-xl bg-white ring-1 ring-slate-200 font-semibold shadow-soft hover:bg-slate-50">정답 힌트 (3초)</button>
+        <button id="btn-new" class="px-3 py-1 rounded bg-slate-900 text-white font-semibold">새 게임</button>
+        <button id="btn-hint" class="px-3 py-1 rounded bg-white ring-1 ring-slate-200 font-semibold">힌트</button>
       </div>
     </header>
 
-    <section class="flex items-center flex-wrap gap-6 mb-3">
-      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">이동 수:</span><span id="moves" class="text-lg font-bold">0</span></div>
-      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">성공 쌍:</span><span id="matches" class="text-lg font-bold">0/5</span></div>
-      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">콤보:</span><span id="combo" class="text-lg font-bold">x0</span></div>
-      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">점수:</span><span id="score" class="text-lg font-bold">0</span></div>
-      <div class="flex items-center gap-2 text-slate-700"><span class="text-sm">남은 시간:</span><span id="time" class="text-lg font-bold">∞</span></div>
-      <div class="ml-auto text-sm text-slate-500">정답 +10점 + 콤보보너스(<span class="font-semibold">+5×콤보단계</span>), 오답 −2점</div>
+    <section class="flex flex-wrap gap-6 mb-3">
+      <div>이동: <span id="moves">0</span></div>
+      <div>성공: <span id="matches">0</span></div>
+      <div>점수: <span id="score">0</span></div>
+      <div>콤보: <span id="combo">0</span></div>
+      <div>시간: <span id="time">∞</span></div>
     </section>
 
-    <section id="board" class="grid gap-4 place-items-center"></section>
-
-    <footer class="mt-6 text-sm text-slate-500">
-      세트 구성은 상단 드롭다운에서 선택하세요. 이미지 링크는 교육 목적 예시이며, 필요 시 학교 내부 서버/구글드라이브 URL로 교체 가능합니다.
-    </footer>
+    <section id="board" class="grid grid-cols-5 gap-3 place-items-center"></section>
   </main>
 
   <template id="tpl-card">
-    <button class="card relative perspective rounded-2xl focus:outline-none focus:ring-4 ring-indigo-200 shadow-soft group" aria-label="카드">
-      <div class="inner w-full h-full transition-transform duration-300">
-        <div class="face front w-full h-full rounded-2xl flex items-center justify-center flag-strip">
-          <div class="text-center">
-            <div class="text-2xl">🃏</div>
-            <div class="mt-1 text-sm text-slate-500">뒤집어 보세요</div>
-          </div>
-        </div>
-        <div class="face back w-full h-full rounded-2xl bg-white flex items-center justify-center p-3"></div>
+    <button class="card relative perspective shadow-soft" aria-label="카드">
+      <div class="inner">
+        <div class="face front">🃏</div>
+        <div class="face back"></div>
       </div>
     </button>
   </template>
 
   <script>
-    // ===== 데이터 세트 (필요 시 이미지 URL 교체) =====
-    const DATASETS = {
-      classic: [
-        { id:'eiffel', ko:'에펠탑', hint:'Tour Eiffel', img:'https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg' },
-        { id:'mona', ko:'모나리자', hint:'Mona Lisa', img:'https://upload.wikimedia.org/wikipedia/commons/6/6a/Mona_Lisa.jpg' },
-        { id:'louvre', ko:'루브르 박물관', hint:'Musée du Louvre', img:'https://upload.wikimedia.org/wikipedia/commons/a/af/Louvre_Museum_Wikimedia_Commons.jpg' },
-        { id:'arc', ko:'개선문', hint:'Arc de Triomphe', img:'https://upload.wikimedia.org/wikipedia/commons/6/6d/Arc_de_Triomphe_Paris_Wikimedia_Commons.jpg' },
-        { id:'versailles', ko:'베르사유 궁전', hint:'Palais de Versailles', img:'https://upload.wikimedia.org/wikipedia/commons/5/5d/Palace_of_Versailles_Wikimedia_Commons.jpg' },
-        { id:'notre', ko:'노트르담 대성당', hint:'Notre-Dame', img:'https://upload.wikimedia.org/wikipedia/commons/a/a6/Notre_Dame_de_Paris_2013-07-24.jpg' },
-        { id:'mont', ko:'몽생미셸', hint:'Mont-Saint-Michel', img:'https://upload.wikimedia.org/wikipedia/commons/0/02/Mont-Saint-Michel_from_above.jpg' },
-        { id:'chambord', ko:'샹보르 성', hint:'Château de Chambord', img:'https://upload.wikimedia.org/wikipedia/commons/8/89/Chateau_Chambord.jpg' }
-      ],
-      art: [
-        { id:'mona', ko:'모나리자', hint:'Mona Lisa', img:'https://upload.wikimedia.org/wikipedia/commons/6/6a/Mona_Lisa.jpg' },
-        { id:'venus', ko:'사모트라케의 니케', hint:'Winged Victory', img:'https://upload.wikimedia.org/wikipedia/commons/3/3c/Winged_Victory_of_Samothrace_-_Louvre.jpg' },
-        { id:'milov', ko:'밀로의 비너스', hint:'Venus de Milo', img:'https://upload.wikimedia.org/wikipedia/commons/7/7d/Venus_de_Milo_Louvre_Ma399_n4.jpg' },
-        { id:'orsee', ko:'오르세 미술관', hint:"Musée d'Orsay", img:'https://upload.wikimedia.org/wikipedia/commons/1/1e/Mus%C3%A9e_d%27Orsay_Inside.jpg' },
-        { id:'monet', ko:'수련', hint:'Monet Water Lilies', img:'https://upload.wikimedia.org/wikipedia/commons/2/2e/Monet_Water_Lilies_1916.jpg' },
-        { id:'rodin', ko:'생각하는 사람', hint:'Rodin The Thinker', img:'https://upload.wikimedia.org/wikipedia/commons/5/5f/Le_Penseur_de_Rodin.jpg' },
-        { id:'delacroix', ko:'민중을 이끄는 자유의 여신', hint:'Delacroix', img:'https://upload.wikimedia.org/wikipedia/commons/4/4d/Eug%C3%A8ne_Delacroix_-_La_libert%C3%A9_guidant_le_peuple.jpg' },
-        { id:'giverny', ko:'지베르니 정원', hint:'Giverny Garden', img:'https://upload.wikimedia.org/wikipedia/commons/1/12/Monet%27s_garden_in_Giverny_2012.jpg' }
-      ],
-      landmarks: [
-        { id:'eiffel', ko:'에펠탑', hint:'Tour Eiffel', img:'https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg' },
-        { id:'notre', ko:'노트르담 대성당', hint:'Notre-Dame', img:'https://upload.wikimedia.org/wikipedia/commons/a/a6/Notre_Dame_de_Paris_2013-07-24.jpg' },
-        { id:'mont', ko:'몽생미셸', hint:'Mont-Saint-Michel', img:'https://upload.wikimedia.org/wikipedia/commons/0/02/Mont-Saint-Michel_from_above.jpg' },
-        { id:'arc', ko:'개선문', hint:'Arc de Triomphe', img:'https://upload.wikimedia.org/wikipedia/commons/6/6d/Arc_de_Triomphe_Paris_Wikimedia_Commons.jpg' },
-        { id:'versailles', ko:'베르사유 궁전', hint:'Palais de Versailles', img:'https://upload.wikimedia.org/wikipedia/commons/5/5d/Palace_of_Versailles_Wikimedia_Commons.jpg' },
-        { id:'sacre', ko:'사크레쾨르 대성당', hint:'Sacré-Cœur', img:'https://upload.wikimedia.org/wikipedia/commons/6/6b/Sacre_Coeur_2011.jpg' },
-        { id:'pontgard', ko:'퐁뒤가르', hint:'Pont du Gard', img:'https://upload.wikimedia.org/wikipedia/commons/7/77/Pont_du_Gard_BLS.jpg' },
-        { id:'carcassonne', ko:'카르카손', hint:'Cité de Carcassonne', img:'https://upload.wikimedia.org/wikipedia/commons/7/70/Carcassonne_Cit%C3%A9_Walls.jpg' }
-      ],
-      food: [
-        { id:'baguette', ko:'바게트', hint:'Baguette', img:'https://upload.wikimedia.org/wikipedia/commons/3/34/French_baguettes.jpg' },
-        { id:'macaron', ko:'마카롱', hint:'Macaron', img:'https://upload.wikimedia.org/wikipedia/commons/0/0e/Macarons_in_Patisserie.jpg' },
-        { id:'cheese', ko:'프랑스 치즈', hint:'Fromage', img:'https://upload.wikimedia.org/wikipedia/commons/3/36/French_cheese_assortment.jpg' },
-        { id:'crepe', ko:'크레페', hint:'Crêpe', img:'https://upload.wikimedia.org/wikipedia/commons/4/4b/Crepes_dsc07085.jpg' },
-        { id:'ratatouille', ko:'라따뚜이', hint:'Ratatouille', img:'https://upload.wikimedia.org/wikipedia/commons/5/50/Ratatouille.jpg' },
-        { id:'louvre', ko:'루브르 박물관', hint:'Musée du Louvre', img:'https://upload.wikimedia.org/wikipedia/commons/a/af/Louvre_Museum_Wikimedia_Commons.jpg' },
-        { id:'eiffel', ko:'에펠탑', hint:'Tour Eiffel', img:'https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg' },
-        { id:'mont', ko:'몽생미셸', hint:'Mont-Saint-Michel', img:'https://upload.wikimedia.org/wikipedia/commons/0/02/Mont-Saint-Michel_from_above.jpg' }
-      ]
-    };
-
-    // ===== 사운드(웹 오디오로 경량 톤 생성) =====
-    let audioCtx;
-    function beep(freq=660, dur=120, type='sine', vol=.2){
-      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.value = vol; o.connect(g); g.connect(audioCtx.destination);
-      o.start(); setTimeout(()=>{ o.stop(); }, dur);
-    }
-    const sfx = {
-      flip: () => beep(700, 70, 'triangle', .07),
-      match: () => { beep(520, 90, 'sine', .15); setTimeout(()=>beep(780, 120,'sine', .15), 90); },
-      wrong: () => { beep(220, 130, 'sawtooth', .08); },
-      win: () => { [523,659,784].forEach((f,i)=> setTimeout(()=>beep(f,120,'sine',.18), i*140)); },
-      timeup: () => { [400,300,220].forEach((f,i)=> setTimeout(()=>beep(f,180,'square',.15), i*200)); }
-    };
-
-    // ----- 유틸 -----
-    const $ = (sel, el=document) => el.querySelector(sel);
-    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
-    const shuffle = (arr) => { const a = [...arr]; for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
     function placeholderDataURL(label){
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='320' height='220'>
         <rect width='100%' height='100%' fill='#e5e7eb'/>
-        <text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='24' fill='#111827'>${label}</text>
+        <text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle'
+          font-family='sans-serif' font-size='18' fill='#475569'>${label}</text>
       </svg>`;
       return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    // ----- 상태 -----
-    let deck = [];
-    let first = null, second = null, lock = false;
-    let moves = 0, matches = 0, score = 0;
-    let combo = 0; // 연속정답 콤보
-    let pairTarget = 5; // 난이도에 따른 목표 쌍 수
-    let timer = null, remain = 0;
+    const DATASETS={classic:[{id:'eiffel',ko:'에펠탑',img:'https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg'},{id:'mona',ko:'모나리자',img:'https://upload.wikimedia.org/wikipedia/commons/6/6a/Mona_Lisa.jpg'},{id:'louvre',ko:'루브르',img:'https://upload.wikimedia.org/wikipedia/commons/a/af/Louvre_Museum_Wikimedia_Commons.jpg'},{id:'arc',ko:'개선문',img:'https://upload.wikimedia.org/wikipedia/commons/6/6d/Arc_de_Triomphe_Paris_Wikimedia_Commons.jpg'},{id:'versailles',ko:'베르사유',img:'https://upload.wikimedia.org/wikipedia/commons/5/5d/Palace_of_Versailles_Wikimedia_Commons.jpg'},{id:'notre',ko:'노트르담',img:'https://upload.wikimedia.org/wikipedia/commons/a/a6/Notre_Dame_de_Paris_2013-07-24.jpg'},{id:'mont',ko:'몽생미셸',img:'https://upload.wikimedia.org/wikipedia/commons/0/02/Mont-Saint-Michel_from_above.jpg'},{id:'baguette',ko:'바게트',img:'https://upload.wikimedia.org/wikipedia/commons/3/34/French_baguettes.jpg'}]};
 
-    function buildDeck(datasetKey){
-      const src = DATASETS[datasetKey] || DATASETS.classic;
-      const need = pairTarget;
-      const chosen = src.slice(0, need);
-      const pairs = chosen.flatMap(item => ([
-        { pair:item.id, kind:'image', label:item.ko, hint:item.hint, img:item.img },
-        { pair:item.id, kind:'word',  label:item.ko, hint:item.hint }
-      ]));
-      return shuffle(pairs);
-    },
-        { pair:item.id, kind:'word',  label:item.ko, hint:item.hint }
-      ]));
-      return shuffle(pairs);
+    let deck=[]; let first=null,second=null,lock=false;
+    let moves=0,matches=0,score=0,combo=0;
+    let timer=null,remain=0;
+
+    const $=(s,e=document)=>e.querySelector(s);
+    const $$=(s,e=document)=>[...e.querySelectorAll(s)];
+    const shuffle=a=>{const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;};
+
+    // 이미지 로딩 실패 대체용 SVG 데이터 URL 생성
+    function placeholderDataURL(label){
+      var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='220'>"+
+                "<rect width='100%' height='100%' fill='#e5e7eb'/>"+
+                "<text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle'"+
+                " font-family='sans-serif' font-size='18' fill='#475569'>"+ label +"</text>"+
+                "</svg>";
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    function preloadImages(list){ list.filter(c=>c.kind==='image').forEach(c=>{ const im=new Image(); im.src=c.img; }); }
+    function buildDeck(){
+      const ds=DATASETS[$('#dataset').value]||DATASETS.classic;
+      const diff=parseInt($('#difficulty').value,10);
+      const needed=(diff/2);
+      const chosen=ds.slice(0,needed);
+      const pairs=chosen.flatMap(item=>[
+        {pair:item.id,kind:'image',label:item.ko,img:item.img},
+        {pair:item.id,kind:'word',label:item.ko}
+      ]);
+      return shuffle(pairs);
+    }
 
     function updateHUD(){
-      $('#moves').textContent = moves;
-      $('#matches').textContent = `${matches}/${pairTarget}`;
-      $('#combo').textContent = `x${combo}`;
-      $('#score').textContent = score;
-      $('#time').textContent = (remain===Infinity) ? '∞' : `${remain}s`;
-    }/5`;
-      $('#score').textContent = score;
-      $('#time').textContent = (remain===Infinity) ? '∞' : `${remain}s`;
+      $('#moves').textContent=moves;
+      $('#matches').textContent=matches;
+      $('#score').textContent=score;
+      $('#combo').textContent=combo;
+      $('#time').textContent=remain===Infinity?'∞':remain+'s';
     }
 
-    function createCardEl(card, index){
-      const tpl = document.getElementById('tpl-card');
-      const el = tpl.content.firstElementChild.cloneNode(true);
-      el.dataset.pair = card.pair;
-      el.dataset.kind = card.kind;
-      el.dataset.index = index;
-      el.setAttribute('aria-label', card.kind==='image' ? `${card.label} 사진 카드` : `${card.label} 단어 카드`);
-
-      const back = $('.back', el);
-      if(card.kind === 'image'){
-        const img = document.createElement('img');
-        img.src = card.img; img.alt = card.label + ' 사진'; img.loading='lazy';
-        img.className = 'max-h-[110px] object-cover rounded-lg shadow-inner';
-        img.onerror = () => { img.src = placeholderDataURL(card.label); };
+    function createCardEl(card){
+      const tpl=$('#tpl-card');
+      const el=tpl.content.firstElementChild.cloneNode(true);
+      el.dataset.pair=card.pair; el.dataset.kind=card.kind;
+      const back=$('.back',el);
+      if(card.kind==='image'){
+        const img=document.createElement('img');
+        img.src = card.img;
+        img.alt = card.label + ' 사진';
+        img.referrerPolicy = 'no-referrer';
+        img.className = 'max-h-[90px] object-contain';
+        img.onerror = function(){
+          const fallback = document.createElement('div');
+          fallback.className = 'text-xs text-slate-500 text-center';
+          fallback.textContent = '이미지 로딩 실패 · ' + card.label;
+          img.replaceWith(fallback);
+        };
         back.appendChild(img);
       } else {
-        const box = document.createElement('div'); box.className='text-center';
-        const main = document.createElement('div'); main.className='text-lg font-bold'; main.textContent = card.label;
-        const sub = document.createElement('div'); sub.className='text-xs text-slate-500 mt-1'; sub.textContent = card.hint || '';
-        box.appendChild(main); box.appendChild(sub); back.appendChild(box);
+        const box = document.createElement('div');
+        box.style.fontWeight = '700';
+        box.textContent = card.label;
+        back.appendChild(box);
       }
-      el.addEventListener('click', () => onFlip(el));
+      el.addEventListener('click',()=>onFlip(el));
       return el;
     }
 
     function render(){
-      const board = document.getElementById('board');
-      board.innerHTML = '';
-      // 2행 고정, 열 수 = pairTarget
-      board.style.gridTemplateColumns = `repeat(${pairTarget}, minmax(0, 1fr))`;
-      // 카드 크기 자동 조절(열이 많아지면 살짝 작게)
-      const sizeClass = pairTarget >= 8 ? 'w-[150px] h-[115px]' : pairTarget >= 6 ? 'w-[165px] h-[125px]' : 'w-[180px] h-[140px]';
-      deck.forEach((c,i)=> {
-        const el = createCardEl(c,i);
-        el.classList.add(...sizeClass.split(' '));
-        board.appendChild(el);
-      });
+      const board=$('#board');
+      board.innerHTML='';
+      const diff=parseInt($('#difficulty').value,10);
+      board.className='grid gap-3 place-items-center';
+      board.style.gridTemplateColumns=`repeat(${diff/2}, minmax(0,1fr))`;
+      deck.forEach(c=>board.appendChild(createCardEl(c)));
     }
 
     function onFlip(el){
-      if(lock || el.classList.contains('matched') || el.classList.contains('flipped')) return;
-      el.classList.add('flipped'); sfx.flip();
-      if(!first){ first = el; return; }
-      second = el; lock = true; moves++; updateHUD();
-
-      const isMatch = first.dataset.pair === second.dataset.pair && first.dataset.kind !== second.dataset.kind;
+      if(lock||el.classList.contains('matched')||el.classList.contains('flipped'))return;
+      el.classList.add('flipped');
+      if(!first){first=el;return;}
+      second=el;lock=true;moves++;updateHUD();
+      const isMatch=first.dataset.pair===second.dataset.pair&&first.dataset.kind!==second.dataset.kind;
       if(isMatch){
         setTimeout(()=>{
-          first.classList.add('matched'); second.classList.add('matched');
-          first.setAttribute('disabled','true'); second.setAttribute('disabled','true');
-          first = second = null; lock = false; matches++; combo++; score += 10 + (Math.max(0, combo-1))*5; updateHUD(); sfx.match();
-          if(matches === pairTarget) win();
-        }, 260);
-      } else {
+          first.classList.add('matched');second.classList.add('matched');
+          matches++; score+=10+combo*2; combo++;
+          resetPair();
+          if(matches===deck.length/2)win();
+        },300);
+      }else{
         setTimeout(()=>{
-          first.classList.remove('flipped'); second.classList.remove('flipped');
-          first = second = null; lock = false; score = Math.max(0, score - 2); combo = 0; updateHUD(); sfx.wrong();
-        }, 800);
-      }, 800);
+          first.classList.remove('flipped');second.classList.remove('flipped');
+          score=Math.max(0,score-2); combo=0;
+          resetPair();
+        },800);
       }
     }
 
-    function win(){
-      stopTimer(); sfx.win();
-      const msg = document.createElement('div');
-      msg.className = 'fixed inset-0 flex items-center justify-center bg-black/20';
-      msg.innerHTML = `
-        <div class='bg-white rounded-2xl p-6 shadow-soft text-center'>
-          <div class='text-3xl mb-2'>🎉 성공!</div>
-          <p class='text-slate-600 mb-4'>모든 짝을 찾았어요. 점수 <span class="font-bold">${score}</span>점, 이동수 <span class="font-bold">${moves}</span>회, 최고 콤보 <span class="font-bold">${combo}</span>x</p>
-          <button id='btn-close' class='px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold hover:opacity-90'>다시 하기</button>
-        </div>`;
-      document.body.appendChild(msg);
-      $('#btn-close', msg).addEventListener('click', () => { document.body.removeChild(msg); newGame(); });
-    }
+    function resetPair(){first=second=null;lock=false;updateHUD();}
 
-    function timeUp(){
-      sfx.timeup();
-      const msg = document.createElement('div');
-      msg.className = 'fixed inset-0 flex items-center justify-center bg-black/30';
-      msg.innerHTML = `
-        <div class='bg-white rounded-2xl p-6 shadow-soft text-center'>
-          <div class='text-3xl mb-2'>⏰ 시간 종료</div>
-          <p class='text-slate-600 mb-4'>점수 <span class="font-bold">${score}</span>점, 성공 <span class="font-bold">${matches}</span>/5</p>
-          <button id='btn-close2' class='px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold hover:opacity-90'>다시 하기</button>
-        </div>`;
-      document.body.appendChild(msg);
-      $('#btn-close2', msg).addEventListener('click', () => { document.body.removeChild(msg); newGame(); });
-    }
+    function win(){stopTimer();alert(`🎉 성공! 점수 ${score}점, 이동 ${moves}회`); newGame();}
 
-    function startTimer(seconds){
-      stopTimer();
-      if(seconds === 0){ remain = Infinity; updateHUD(); return; }
-      remain = seconds; updateHUD();
-      timer = setInterval(()=>{
-        if(remain===Infinity) return; remain--; updateHUD();
-        if(remain <= 0){ stopTimer(); lock = true; $$('#board .card').forEach(el=>el.setAttribute('disabled','true')); timeUp(); }
-      }, 1000);
+    function startTimer(sec){
+      stopTimer(); if(sec===0){remain=Infinity;updateHUD();return;}
+      remain=sec;updateHUD();
+      timer=setInterval(()=>{remain--;updateHUD(); if(remain<=0){stopTimer();alert('⏰ 시간 종료!'); newGame();}},1000);
     }
-      remain = seconds; updateHUD();
-      timer = setInterval(()=>{
-        if(remain===Infinity) return; remain--; updateHUD();
-        if(remain <= 0){ stopTimer(); // 보드 잠금
-          lock = true; $$('#board .card').forEach(el=>el.setAttribute('disabled','true'));
-          timeUp();
-        }
-      }, 1000);
-    }
-    function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
+    function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
 
-    function hint3sec(){
-      const cards = $$('#board .card');
-      const toFlip = cards.filter(el => !el.classList.contains('matched') && !el.classList.contains('flipped'));
-      toFlip.forEach(el => el.classList.add('flipped'));
-      setTimeout(() => { toFlip.forEach(el => el.classList.remove('flipped')); }, 3000);
-    }
+    function hint(){const cards=$$('#board .card:not(.matched)');cards.forEach(c=>c.classList.add('flipped'));setTimeout(()=>cards.forEach(c=>c.classList.remove('flipped')),2000);}
 
-    function newGame(){
-      const ds = document.getElementById('dataset').value;
-      pairTarget = parseInt(document.getElementById('difficulty').value, 10) || 5;
-      const limitSel = parseInt(document.getElementById('timelimit').value, 10);
-      first = second = null; lock = false; moves = 0; matches = 0; score = 0; combo = 0; updateHUD();
-      deck = buildDeck(ds); preloadImages(deck); render();
-      startTimer(limitSel);
-    }
+    function newGame(){first=second=null;lock=false;moves=matches=score=combo=0;updateHUD();deck=buildDeck();render();startTimer(parseInt($('#timelimit').value,10));}
 
-    // 초기화
-    document.getElementById('btn-new').addEventListener('click', newGame);
-    document.getElementById('btn-hint').addEventListener('click', hint3sec);
-    document.getElementById('dataset').addEventListener('change', newGame);
-    document.getElementById('difficulty').addEventListener('change', newGame);
-    document.getElementById('timelimit').addEventListener('change', newGame);
+    $('#btn-new').addEventListener('click',newGame);
+    $('#btn-hint').addEventListener('click',hint);
+    $('#dataset').addEventListener('change',newGame);
+    $('#difficulty').addEventListener('change',newGame);
+    $('#timelimit').addEventListener('change',newGame);
     newGame();
   </script>
 </body>
